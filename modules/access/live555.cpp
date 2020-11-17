@@ -2079,12 +2079,18 @@ static void StreamRead( void *p_private, unsigned int i_size,
             msg_Warn( p_demux, "unsupported NAL type for H265" );
 
         /* Normal NAL type */
-        if( (p_block = block_Alloc( i_size + 4 )) )
+        if( (p_block = block_Alloc( i_size + 4 + 4)) )
         {
             p_block->p_buffer[0] = 0x00;
             p_block->p_buffer[1] = 0x00;
             p_block->p_buffer[2] = 0x00;
             p_block->p_buffer[3] = 0x01;
+			
+			p_block->p_buffer[i_size + 4 + 0] = 0x00;
+		    p_block->p_buffer[i_size + 4 + 1] = 0x00;
+		    p_block->p_buffer[i_size + 4 + 2] = 0x00;
+		    p_block->p_buffer[i_size + 4 + 3] = 0x01;
+		
             memcpy( &p_block->p_buffer[4], tk->p_buffer, i_size );
         }
     }
