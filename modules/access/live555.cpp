@@ -289,7 +289,15 @@ static unsigned char* parseVorbisConfigStr( char const* configStr,
 
 static char *passwordLessURL( vlc_url_t *url );
 
-#define PCR_OBS (CLOCK_FREQ / 4)
+/*****************************************************************************
+ * why the original vlc code use PCR_OBS,PCR_OFF ? the value is 250*1000
+ * it caused rtsp stream show delay 250ms! so re-define the value,change to 0.
+ * by nio
+ *****************************************************************************/
+//#define PCR_OBS (CLOCK_FREQ / 4)
+//#define PCR_OFF PCR_OBS
+
+#define PCR_OBS (0)
 #define PCR_OFF PCR_OBS
 
 /*****************************************************************************
