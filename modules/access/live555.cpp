@@ -1452,8 +1452,12 @@ static int Demux( demux_t *p_demux )
             /* Check for gap in pts value */
             b_need_flush |= (tk->b_flushing_discontinuity);
 
-            if( i_minpcr == VLC_TS_INVALID || ( tk->i_pcr != VLC_TS_INVALID && i_minpcr > tk->i_pcr ) )
+            //use video's pts, it more stable
+            if (i_minpcr == VLC_TS_INVALID || (tk->fmt.i_cat == VIDEO_ES) || (tk->i_pcr != VLC_TS_INVALID && i_minpcr > tk->i_pcr)) {
                 i_minpcr = tk->i_pcr;
+                if (tk->fmt.i_cat == VIDEO_ES)
+                    break;
+            }
         }
 
         if( p_sys->i_pcr > VLC_TS_INVALID && b_need_flush )
@@ -1472,7 +1476,7 @@ static int Demux( demux_t *p_demux )
                 tk->i_next_block_flags |= BLOCK_FLAG_DISCONTINUITY;
             }
             if( p_sys->i_pcr != VLC_TS_INVALID )
-                es_out_SetPCR( p_demux->out, VLC_TS_0 +
+                es_out_SetPCR( p_demux->out, /*VLC_TS_0 +*/
                                __MAX(0, p_sys->i_pcr - PCR_OFF) );
         }
         else if( p_sys->i_pcr == VLC_TS_INVALID ||
@@ -1480,7 +1484,7 @@ static int Demux( demux_t *p_demux )
         {
             p_sys->i_pcr = __MAX(0, i_minpcr - PCR_OFF);
             if( p_sys->i_pcr != VLC_TS_INVALID )
-                es_out_SetPCR( p_demux->out, VLC_TS_0 + p_sys->i_pcr );
+                es_out_SetPCR( p_demux->out, /*VLC_TS_0 +*/ p_sys->i_pcr );  //why add VLC_TS_0 ?
         }
     }
 
@@ -2086,21 +2090,32 @@ static void StreamRead( void *p_private, unsigned int i_size,
         else if( tk->fmt.i_codec == VLC_CODEC_HEVC && ((tk->p_buffer[0] & 0x7e)>>1) >= 48 )
             msg_Warn( p_demux, "unsupported NAL type for H265" );
 
-        /* Normal NAL type */
-        if( (p_block = block_Alloc( i_size + 4 + 4)) )
-        {
-            p_block->p_buffer[0] = 0x00;
-            p_block->p_buffer[1] = 0x00;
-            p_block->p_buffer[2] = 0x00;
-            p_block->p_buffer[3] = 0x01;
-			
-			p_block->p_buffer[i_size + 4 + 0] = 0x00;
-		    p_block->p_buffer[i_size + 4 + 1] = 0x00;
-		    p_block->p_buffer[i_size + 4 + 2] = 0x00;
-		    p_block->p_buffer[i_size + 4 + 3] = 0x01;
-		
-            memcpy( &p_block->p_buffer[4], tk->p_buffer, i_size );
-        }
+        if (VLC_CODEC_H264 == tk->fmt.i_codec)
+		{
+			if (p_block = block_Alloc(i_size + 4 + 4))
+			{
+				//for h264, add StartCode at the end of block, let "packetizer" known:
+				//this is a whole NALU,no need to wait the next NALU(the wait will cost extra time,33ms in 30fps case)
+				p_block->p_buffer[i_size + 4 + 0] = 0x00;
+				p_block->p_buffer[i_size + 4 + 1] = 0x00;
+				p_block->p_buffer[i_size + 4 + 2] = 0x00;
+				p_block->p_buffer[i_size + 4 + 3] = 0x01;
+			}
+		}
+		else
+		{
+			p_block = block_Alloc(i_size + 4);
+		}
+
+		if (p_block)
+		{
+			p_block->p_buffer[0] = 0x00;
+			p_block->p_buffer[1] = 0x00;
+			p_block->p_buffer[2] = 0x00;
+			p_block->p_buffer[3] = 0x01;
+
+			memcpy(&p_block->p_buffer[4], tk->p_buffer, i_size);
+		}
     }
     else if( tk->format == live_track_t::ASF_STREAM )
     {
