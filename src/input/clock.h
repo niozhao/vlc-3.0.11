@@ -95,6 +95,13 @@ void    input_clock_GetSystemOrigin( input_clock_t *, mtime_t *pi_system, mtime_
 void    input_clock_ChangeSystemOrigin( input_clock_t *, bool b_absolute, mtime_t i_system );
 
 /**
+ * This function change the time point to update drift
+ * the Input thread will wait/sleep a while, so the continue update clock value
+ * [i_stream,i_system] is incorrect, so not use those value update drift, it will 
+ * add drift's error.
+ */
+void  input_clock_ChangeDriftStartPoint(input_clock_t* cl, mtime_t i_system);
+/**
  * This function converts a pair of timestamp from stream clock to system clock.
  *
  * If pi_rate is provided it will be filled with the rate value used for
@@ -109,7 +116,7 @@ void    input_clock_ChangeSystemOrigin( input_clock_t *, bool b_absolute, mtime_
  * Otherwise it will return VLC_SUCCESS.
  */
 int input_clock_ConvertTS( vlc_object_t *, input_clock_t *, int *pi_rate,
-                           mtime_t *pi_ts0, mtime_t *pi_ts1, mtime_t i_ts_bound );
+                           mtime_t *pi_ts0, mtime_t *pi_ts1, mtime_t i_ts_bound, bool bVideoES );
 
 /**
  * This function returns the current rate.
