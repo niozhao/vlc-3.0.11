@@ -115,18 +115,20 @@ typedef struct
 {
     mtime_t i_value;    //the original vlc algorithm 
     int     i_residue;
-
-    mtime_t i_count;
     int     i_divider;
+
     mtime_t i_variance;    //drift's variance
     mtime_t i_means;       //drift's means.
+    mtime_t i_residue_means;
+    mtime_t i_residue_variance;
     mtime_t i_maxOffset;   //max network jetter
-    mtime_t     i_startCount;  //the time point to get i_maxOffset. if i_maxOffset not increase for a while, try decrease it!
+    mtime_t i_startCount;  //the time point to get i_maxOffset. if i_maxOffset not increase for a while, try decrease it!
+    mtime_t i_count;
 } average_t;
 
 typedef struct
 {
-    mtime_t i_latency;
+    mtime_t i_means;
     mtime_t i_residue;
     mtime_t i_count;
     mtime_t i_max;
@@ -187,6 +189,8 @@ struct input_clock_t
         unsigned i_index;
     } late;
 
+    int continuous_late_count;    //if this value large than 66 * 2, reset clock.
+
     /* Reference point */
     clock_point_t ref;
     bool          b_has_reference;
@@ -229,7 +233,7 @@ char* toString(input_clock_t* cl)
 		memset(buf, 0, bufS);
 		snprintf(buf, bufS, "%ld,i_ts_max(%lld),drift(%lld,%lld,%lld,%lld,%lld,%lld),decode late[%lld,%lld,%lld,%lld],ref(%lld,%lld),mdate(%lld)", GetCurrentThreadId(),cl->i_ts_max,
 			cl->drift.i_value, cl->drift.i_means, cl->drift.i_variance, cl->drift.i_count, cl->drift.i_maxOffset, cl->drift.i_startCount,
-			cl->stat.i_latency, cl->stat.i_max, cl->stat.i_count, cl->stat.i_maxCount,
+			cl->stat.i_means, cl->stat.i_max, cl->stat.i_count, cl->stat.i_maxCount,
 			cl->ref.i_stream, cl->ref.i_system, mdate());
     }
     return buf;
@@ -258,6 +262,7 @@ input_clock_t *input_clock_New( int i_rate )
     cl->i_next_drift_update = VLC_TS_INVALID;
     AvgInit( &cl->drift, 10 );
 
+    cl->continuous_late_count = 0;
     cl->late.i_index = 0;
     for( int i = 0; i < INPUT_CLOCK_LATE_COUNT; i++ )
         cl->late.pi_value[i] = 0;
@@ -580,7 +585,6 @@ int input_clock_ConvertTS_new(vlc_object_t* p_object, input_clock_t* cl,
 	const mtime_t i_ts_delay = ClockGetTsOffset(cl) + getNetworkJitter(cl) + getDecoderLatency(cl);  //changed!
 
 	/* */
-	mtime_t inputPTS = *pi_ts0;
 	if (*pi_ts0 > VLC_TS_INVALID)
 	{
 		*pi_ts0 = ClockStreamToSystem(cl, *pi_ts0 + AvgGet(&cl->drift));
@@ -595,6 +599,20 @@ int input_clock_ConvertTS_new(vlc_object_t* p_object, input_clock_t* cl,
 		*pi_ts1 = ClockStreamToSystem(cl, *pi_ts1 + AvgGet(&cl->drift)) +
 			i_ts_delay;
 	}
+    //check auto-adjust algorithm validity!
+    if (mdate() - *pi_ts0 >= 16 * 1000)  //this picture is too late to be display
+    {
+        if (cl->continuous_late_count++ > 66 * 2)
+        {
+            char* thisStatus = toString(cl);
+			msg_Err(p_object, "convert stream to system time continuous late(2 second)!algorithm error, reset clock,current clock:%s", thisStatus);
+            if (thisStatus) free(thisStatus);
+            input_clock_Reset(cl);
+            cl->continuous_late_count = 0;
+        }
+    }
+    else
+        cl->continuous_late_count = 0;
 
 	vlc_mutex_unlock(&cl->lock);
 
@@ -643,7 +661,6 @@ int input_clock_ConvertTS( vlc_object_t *p_object, input_clock_t *cl,
     const mtime_t i_ts_delay = cl->i_pts_delay + ClockGetTsOffset( cl );
 
     /* */
-    mtime_t inputPTS = *pi_ts0;
     if( *pi_ts0 > VLC_TS_INVALID )
     {
         *pi_ts0 = ClockStreamToSystem( cl, *pi_ts0 + AvgGet( &cl->drift ) );
@@ -880,6 +897,8 @@ static void AvgReset( average_t *p_avg )
     p_avg->i_count = 0;
     p_avg->i_means = 0;
     p_avg->i_variance = 0;
+    p_avg->i_residue_means = 0;
+    p_avg->i_residue_variance = 0;
     p_avg->i_maxOffset = 0;
     p_avg->i_startCount = 0;
 }
@@ -895,11 +914,31 @@ static void AvgUpdate( average_t *p_avg, mtime_t i_value )
 	p_avg->i_residue = i_tmp % p_avg->i_divider;
 
     //new 
-    //p_avg->i_means = (p_avg->i_means * p_avg->i_count + i_value) / (p_avg->i_count + 1);
-    p_avg->i_means = (p_avg->i_means * 1.0 / (p_avg->i_count + 1)) * p_avg->i_count + i_value * 1.0 / (p_avg->i_count + 1);
+    const int STATICS_CIRCLE = 30 * 60;
+    int index = p_avg->i_count % STATICS_CIRCLE;
+    mtime_t last_variance = 0;
+    if (0 == index)
+    {
+        //new circle
+        last_variance = p_avg->i_variance / 2;  //use the last one as the new circle init variance.
+        p_avg->i_residue_means = 0;
+        p_avg->i_means = 0;
+        p_avg->i_variance = 0;
+        p_avg->i_residue_variance = 0;
+    }
+	mtime_t i_tmp_new = p_avg->i_means * index + i_value + p_avg->i_residue_means;
+	p_avg->i_means = i_tmp_new / (index + 1);
+	p_avg->i_residue_means = i_tmp_new % (index + 1);
     mtime_t offset = _abs64(i_value - p_avg->i_means);
+    i_tmp_new = p_avg->i_variance * index + offset * offset + p_avg->i_residue_variance + last_variance;
+    p_avg->i_variance = i_tmp_new / (index + 1);
+    p_avg->i_residue_variance = i_tmp_new % (index + 1);
+    
+    //p_avg->i_means = (p_avg->i_means * p_avg->i_count + i_value) / (p_avg->i_count + 1);
+    //p_avg->i_means = (p_avg->i_means * 1.0 / (p_avg->i_count + 1)) * p_avg->i_count + i_value * 1.0 / (p_avg->i_count + 1);
+    //mtime_t offset = _abs64(i_value - p_avg->i_means);
     //p_avg->i_variance = (p_avg->i_variance * p_avg->i_count + offset * offset) / (p_avg->i_count + 1);    //will overfolw?
-    p_avg->i_variance = (p_avg->i_variance * 1.0 / (p_avg->i_count + 1)) * p_avg->i_count + offset * offset * 1.0 / (p_avg->i_count + 1);
+    //p_avg->i_variance = (p_avg->i_variance * 1.0 / (p_avg->i_count + 1)) * p_avg->i_count + offset * offset * 1.0 / (p_avg->i_count + 1);
     
     if (offset > p_avg->i_maxOffset)
     {
@@ -907,10 +946,11 @@ static void AvgUpdate( average_t *p_avg, mtime_t i_value )
         p_avg->i_startCount = p_avg->i_count; 
     }
 
-    if (p_avg->i_count - p_avg->i_startCount > 0.5 * 30)  //30fps
+    if (p_avg->i_count - p_avg->i_startCount > 3) 
     {
         //try decrease i_maxOffset.
-        p_avg->i_maxOffset = (sqrt(p_avg->i_variance) + p_avg->i_maxOffset) / 2;
+        //p_avg->i_maxOffset = (sqrt(p_avg->i_variance) * 2 + p_avg->i_maxOffset) / 3;
+        p_avg->i_maxOffset = sqrt(p_avg->i_variance);   //70%'s data is ok!
         p_avg->i_startCount = p_avg->i_count;
     }
     
@@ -967,7 +1007,7 @@ static void updateDecoderLatency(input_clock_t* cl, mtime_t i_stream)
     latencyStatisUpdate(&cl->stat,thisLatency);
 }
 
-static void latencyStatisUpdate(decoder_latency_statistics* statics, mtime_t i_latency)
+static void latencyStatisUpdate(decoder_latency_statistics* statics, mtime_t latency)
 {
     //drop the first 120 update, those value are not correctly, will increase error! about 2 second in 30fps.
     const int drop_count = 120;  
@@ -975,20 +1015,31 @@ static void latencyStatisUpdate(decoder_latency_statistics* statics, mtime_t i_l
     mtime_t count = statics->i_count - drop_count;
     if (count >= 0)
     {
-        //statics->i_latency = statics->i_latency * 1.0 / (count + 1) * count + i_latency * 1.0 / (count + 1);
-        const mtime_t tmp = statics->i_latency * count + i_latency + statics->i_residue;  //will overflow?
-        statics->i_latency = tmp / (count + 1);
-        statics->i_residue = tmp % (count + 1);
-        if (statics->i_latency > statics->i_max || INIT_DECODER_LATENCY == statics->i_max)
+        const int DECODER_LATENCY_STATISTICS_CIRCLE = 30 * 5 * 2;  // 2 : a frame will call twice
+        int index = count % DECODER_LATENCY_STATISTICS_CIRCLE;
+        if (0 == index)
         {
-			statics->i_max = statics->i_latency;
+            latency = (latency + statics->i_means) / 2;  //use this value as the new circle init value
+            statics->i_means = 0;
+            statics->i_residue = 0;
+        }
+        const mtime_t tmp = statics->i_means * index + latency + statics->i_residue;
+        statics->i_means = tmp / (index + 1);
+        statics->i_residue = tmp % (index + 1);
+        mtime_t offset = _abs64(latency - statics->i_means);
+        if (offset > statics->i_max || INIT_DECODER_LATENCY == statics->i_max)
+        {
+            if(INIT_DECODER_LATENCY == statics->i_max)  //first call
+                statics->i_max = offset;
+            else
+                statics->i_max = (offset * 3 + statics->i_max) / 4;
 			statics->i_maxCount = statics->i_count;
         }
 
-        if (statics->i_count - statics->i_maxCount >= 1.2 * 33 * 3)  //1.2 second
+        if (statics->i_count - statics->i_maxCount >= 3 * 2) 
         {
             //try decrease
-            statics->i_max = (statics->i_latency + statics->i_max) / 2;
+            statics->i_max = (statics->i_means * 2 + statics->i_max) / 3;
 			statics->i_maxCount = statics->i_count;
         }
     }
@@ -1002,7 +1053,7 @@ static void latencyStatisUpdate(decoder_latency_statistics* statics, mtime_t i_l
 static void latencyStatisInit(decoder_latency_statistics* st)
 {
     st->i_count = 0;
-    st->i_latency = INIT_DECODER_LATENCY;  
+    st->i_means = INIT_DECODER_LATENCY;
     st->i_residue = 0;
     st->i_max = INIT_DECODER_LATENCY;
     st->i_maxCount = 205 * 1000;    //set this value, the purpose is: update it after i_max is valid
