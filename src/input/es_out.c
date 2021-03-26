@@ -710,7 +710,6 @@ static void EsOutDecodersStopBuffering( es_out_t *out, bool b_forced )
     input_clock_ChangeSystemOrigin( p_sys->p_pgrm->p_clock, true,
                                     i_current_date + i_wakeup_delay - i_buffering_duration );
 									
-	input_clock_ChangeDriftStartPoint( p_sys->p_pgrm->p_clock, i_current_date);
 
     for( int i = 0; i < p_sys->i_es; i++ )
     {
