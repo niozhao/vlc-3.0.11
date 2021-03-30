@@ -115,7 +115,7 @@ void    input_clock_ShiftRef(input_clock_t*, mtime_t newRefStream);
  * Otherwise it will return VLC_SUCCESS.
  */
 int input_clock_ConvertTS( vlc_object_t *, input_clock_t *, int *pi_rate,
-                           mtime_t *pi_ts0, mtime_t *pi_ts1, mtime_t i_ts_bound, bool bVideoES );
+                           mtime_t *pi_ts0, mtime_t *pi_ts1, mtime_t i_ts_bound, bool bVideoES, bool bUpdateLatency);
 
 /**
  * This function returns the current rate.
