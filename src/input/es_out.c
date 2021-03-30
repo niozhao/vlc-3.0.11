@@ -707,8 +707,7 @@ static void EsOutDecodersStopBuffering( es_out_t *out, bool b_forced )
     const mtime_t i_wakeup_delay = 10*1000; /* FIXME CLEANUP thread wake up time*/
     const mtime_t i_current_date = p_sys->b_paused ? p_sys->i_pause_date : mdate();
 
-    input_clock_ChangeSystemOrigin( p_sys->p_pgrm->p_clock, true,
-                                    i_current_date + i_wakeup_delay - i_buffering_duration );
+    input_clock_ChangeSystemOrigin(p_sys->p_pgrm->p_clock, true, i_current_date + i_wakeup_delay - (i_buffering_duration - p_sys->i_pts_delay));
 									
 
     for( int i = 0; i < p_sys->i_es; i++ )

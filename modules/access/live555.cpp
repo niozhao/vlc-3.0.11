@@ -2193,7 +2193,8 @@ static void StreamRead( void *p_private, unsigned int i_size,
                     tk->i_next_block_flags = 0;
                 }
 
-                mtime_t i_pcr = p_block->i_dts > VLC_TS_INVALID ? p_block->i_dts : p_block->i_pts;
+                //mtime_t i_pcr = p_block->i_dts > VLC_TS_INVALID ? p_block->i_dts : p_block->i_pts;
+				mtime_t i_pcr = p_block->i_pts > VLC_TS_INVALID ? p_block->i_pts : p_block->i_dts;
                 es_out_Send( p_demux->out, tk->p_es, p_block );
                 if( i_pcr > VLC_TS_INVALID )
                 {
