@@ -66,6 +66,14 @@ void    input_clock_Update( input_clock_t *, vlc_object_t *p_log,
 void    input_clock_Reset( input_clock_t * );
 
 /**
+ *   private
+ *   the locker is not support Reentrant in android platform
+ *   this function is not protected under locker, so just can be called in those functions
+ *   who already protected by cl->lock
+ */
+void    input_clock_Reset_No_Locker(input_clock_t*);
+
+/**
  * This functions will return a deadline used to control the reading speed.
  */
 mtime_t input_clock_GetWakeup( input_clock_t * );
@@ -87,18 +95,18 @@ void    input_clock_ChangePause( input_clock_t *, bool b_paused, mtime_t i_date 
 void    input_clock_GetSystemOrigin( input_clock_t *, mtime_t *pi_system, mtime_t *pi_delay );
 
 /**
+ * change the ref to the current frame, correlation to input_clock_ChangeSystemOrigin()
+ * after call input_clock_ChangeSystemOrigin,means, we want current frame display at current system time: mdate()
+ */
+void    input_clock_ShiftRef(input_clock_t*, mtime_t newRefStream);
+
+/**
  * This function allows rebasing the original system value date (a valid
  * reference point must have been set).
  * When using the absolute mode, it will create a discontinuity unless
  * called imediatly after a input_clock_Update.
  */
 void    input_clock_ChangeSystemOrigin( input_clock_t *, bool b_absolute, mtime_t i_system );
-
-/**
- * change the ref to the current frame, correlation to input_clock_ChangeSystemOrigin()
- * after call input_clock_ChangeSystemOrigin,means, we want current frame display at current system time: mdate()
- */
-void    input_clock_ShiftRef(input_clock_t*, mtime_t newRefStream);
 
 /**
  * This function converts a pair of timestamp from stream clock to system clock.
