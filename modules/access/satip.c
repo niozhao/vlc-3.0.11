@@ -603,7 +603,14 @@ static int satip_bind_ports(stream_t *access)
         sys->rtcp_sock = net_OpenDgram(access, "0.0.0.0", sys->udp_port + 1, NULL,
                 0, IPPROTO_UDP);
         if (sys->rtcp_sock < 0) {
-            close(sys->udp_sock);
+            int ret = close(sys->udp_sock);
+            if(ret)
+            {
+               msg_Err(access, "close rtp udp socket in satip.c error, errorCode:%d",errno);
+               if(errno != EBADF)
+                  close(sys->udp_sock);  //try again!
+            }
+            sys->udp_sock = -1;  //let while loop continue!
             sys->udp_port += 2;
             continue;
         }
