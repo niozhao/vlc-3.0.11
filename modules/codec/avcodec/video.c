@@ -1008,11 +1008,19 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block, bool *error
     {
         int ret;
         int i_used = 0;
+                mtime_t i_pts_copied = p_block ? p_block->i_pts : 0;
+        mtime_t i_dts_copied = p_block ? p_block->i_dts : 0;
+        size_t blockSize = p_block ? p_block->i_buffer : 0;
+        static mtime_t totalSend = 0;
+        static mtime_t totalReceived = 0;
         const bool b_has_data = ( p_block && p_block->i_buffer > 0 );
         const bool b_start_drain = ((pp_block == NULL) || eos_spotted) && !p_sys->b_draining;
 
         post_mt( p_sys );
 
+        __int64 time1 = 0;
+        __int64 time2 = -1;
+        
         if( b_has_data || b_start_drain )
         {
             AVPacket pkt;
@@ -1045,6 +1053,7 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block, bool *error
                 }
             }
 
+            //time1 = mdate_count();
             ret = avcodec_send_packet(p_context, &pkt);
             if( ret != 0 && ret != AVERROR(EAGAIN) )
             {
@@ -1057,6 +1066,8 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block, bool *error
                 break;
             }
             i_used = ret != AVERROR(EAGAIN) ? pkt.size : 0;
+            if (!ret && pkt.size)
+                totalSend++;
             av_packet_unref( &pkt );
         }
 
@@ -1068,6 +1079,7 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block, bool *error
         }
 
         ret = avcodec_receive_frame(p_context, frame);
+        //__int64 time3 = mdate_count();
         if( ret != 0 && ret != AVERROR(EAGAIN) )
         {
             if (ret == AVERROR(ENOMEM) || ret == AVERROR(EINVAL))
@@ -1086,6 +1098,12 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block, bool *error
         }
         bool not_received_frame = ret;
 
+        if (!not_received_frame) 
+        {
+            totalReceived++;
+	    //msg_Warn(p_dec, "%ld frameTrace ffmpeg succeed(%lld),inPts:%lld, dts:%lld, getPts:%lld,blockSize:%u, totalCost:%lld, totalSend:%lld, totalReceived:%lld", vlc_thread_id(), mdate_count(), i_pts_copied, i_dts_copied, frame->pts, blockSize, time3 - time1, totalSend, totalReceived);
+        }
+        
         wait_mt( p_sys );
 
         if( eos_spotted )

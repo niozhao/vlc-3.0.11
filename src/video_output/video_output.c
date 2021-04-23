@@ -895,6 +895,8 @@ static int ThreadDisplayPreparePicture(vout_thread_t *vout, bool reuse, bool fra
         vout->p->displayed.is_interlaced = !decoded->b_progressive;
 
         picture = filter_chain_VideoFilter(vout->p->filter.chain_static, decoded);
+        
+        //msg_Warn(vout, "%ld frameTrace get picture(%lld),pts:%lld, afterChain:%lld,data-mdata():%lld", vlc_thread_id(), mdate_count(), decoded->date,picture->date, decoded->date - mdate());
     }
 
     vlc_mutex_unlock(&vout->p->filter.lock);
@@ -963,6 +965,7 @@ static picture_t *ConvertRGB32AndBlend(vout_thread_t *vout, picture_t *pic,
     }
     return NULL;
 }
+
 
 static int ThreadDisplayRenderPicture(vout_thread_t *vout, bool is_forced)
 {
@@ -1133,7 +1136,9 @@ static int ThreadDisplayRenderPicture(vout_thread_t *vout, bool is_forced)
     /* Render the direct buffer */
     vout_UpdateDisplaySourceProperties(vd, &todisplay->format);
 
+    //mtime_t t3 = mdate_count();
     todisplay = vout_FilterDisplay(vd, todisplay);
+    //mtime_t t4 = mdate_count();
     if (todisplay == NULL) {
         if (subpic != NULL)
             subpicture_Delete(subpic);
@@ -1141,11 +1146,17 @@ static int ThreadDisplayRenderPicture(vout_thread_t *vout, bool is_forced)
     }
 
     if (sys->display.use_dr) {
+        //mtime_t t1 = mdate_count();
         vout_display_Prepare(vd, todisplay, subpic);
+        //mtime_t t2 = mdate_count();
+	//msg_Warn(vout, "%ld frameTrace vout_display_Prepare done use direct render(%lld) cost:%lld,pts: %lld,data-mdata():%lld, t4-t3:%lld,t3:%lld,t4:%lld,t1:%lld", vlc_thread_id(), t2, t2 - t1, todisplay->date, todisplay->date - mdate(), t4 - t3, t3, t4, t1);
     } else {
         if (!do_dr_spu && !do_early_spu && vout->p->spu_blend && subpic)
             picture_BlendSubpicture(todisplay, vout->p->spu_blend, subpic);
+        //mtime_t t1 = mdate_count();
         vout_display_Prepare(vd, todisplay, do_dr_spu ? subpic : NULL);
+        //mtime_t t2 = mdate_count();
+        //msg_Warn(vout, "%ld frameTrace vout_display_Prepare done(%lld) cost:%lld,pts: %lld,data-mdata():%lld, t4-t3:%lld,t3:%lld,t4:%lld,t1:%lld", vlc_thread_id(), t2,t2 - t1, todisplay->date, todisplay->date - mdate(),t4-t3,t3,t4,t1);
 
         if (!do_dr_spu && subpic)
         {
@@ -1175,6 +1186,7 @@ static int ThreadDisplayRenderPicture(vout_thread_t *vout, bool is_forced)
 
     /* Display the direct buffer returned by vout_RenderPicture */
     vout->p->displayed.date = mdate();
+    //msg_Warn(vout, "%ld frameTrace now display picture(%lld),pts: %lld,data-mdata():%lld", vlc_thread_id(), mdate_count(), todisplay->date, todisplay->date-vout->p->displayed.date);
     vout_display_Display(vd, todisplay, subpic);
 
     vout_statistic_AddDisplayed(&vout->p->statistic, 1);

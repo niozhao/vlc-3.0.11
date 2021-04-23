@@ -1268,7 +1268,12 @@ static void *OutThread(void *data)
                     break;
                 }
                 if (p_pic)
+                {
+                    //mtime_t t2 = mdate_count();
+                    //msg_Warn(p_dec, "%ld frameTrace mediacodec get_out succeed. pts:%lld, time:%lld", vlc_thread_id(),p_pic->date,t2);
+                    
                     decoder_QueueVideo(p_dec, p_pic);
+                }
                 else if (p_block)
                     decoder_QueueAudio(p_dec, p_block);
 
@@ -1366,6 +1371,12 @@ static int QueueBlockLocked(decoder_t *p_dec, block_t *p_in_block,
             if (p_sys->api.queue_in(&p_sys->api, i_index, p_buf, i_size,
                                     i_ts, b_config) == 0)
             {
+                if(p_block && (p_dec->fmt_out.i_cat == VIDEO_ES))
+                {
+                    //mtime_t t1 = mdate_count();
+                    //msg_Warn(p_dec, "%ld frameTrace mediacodec queuein succeed. pts:%lld,size:%d,type:%d, time:%lld", vlc_thread_id(),i_ts,i_size,
+                    //(i_size >= 5 ? (p_block->p_buffer[4] & 0x1f) : -1),t1);
+                }
                 if (!b_config && p_block != NULL)
                 {
                     if (p_block->i_flags & BLOCK_FLAG_PREROLL)

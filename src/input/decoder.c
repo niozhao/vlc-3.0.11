@@ -1612,6 +1612,11 @@ static void *DecoderThread( void *p_data )
             /* We have emptied the FIFO and there is a pending request to
              * drain. Pass p_block = NULL to decoder just once. */
         }
+        else
+        {
+            /*if(p_dec->fmt_out.i_cat == VIDEO_ES)
+		msg_Warn(p_dec, "%ld frameTrace get a frame from queue (%lld), pts: %lld, dts:%lld ,size: %d", vlc_thread_id(), mdate_count(), p_block->i_pts, p_block->i_dts, p_block->i_buffer);*/
+        }
 
         vlc_fifo_Unlock( p_owner->p_fifo );
 

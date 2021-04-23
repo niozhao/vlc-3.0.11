@@ -2194,7 +2194,24 @@ static void StreamRead( void *p_private, unsigned int i_size,
                 }
 
                 //mtime_t i_pcr = p_block->i_dts > VLC_TS_INVALID ? p_block->i_dts : p_block->i_pts;
-				mtime_t i_pcr = p_block->i_pts > VLC_TS_INVALID ? p_block->i_pts : p_block->i_dts;
+		mtime_t i_pcr = p_block->i_pts > VLC_TS_INVALID ? p_block->i_pts : p_block->i_dts;
+		
+		 /*__int64 currentTime = mdate_count();
+                static mtime_t video_last_pts = 0;
+                static mtime_t audio_last_pts = 0;
+                if (tk->fmt.i_cat == VIDEO_ES) {
+                    static mtime_t video_last_time = 0;
+					msg_Warn(p_demux, "%ld frameTrace live555 Video(%lld), pts: %lld, dts: %lld, offset(%lld,%lld),ptsOffsetToLastAudio(%lld), size %d, frameType:%d", vlc_thread_id(), currentTime, p_block->i_pts, p_block->i_dts, (p_block->i_pts - video_last_pts), (currentTime - video_last_time), p_block->i_pts - audio_last_pts, i_size, (tk->p_buffer[0] & 0x1f));
+                    video_last_time = currentTime;
+                    video_last_pts = p_block->i_pts;
+                }
+                else if (tk->fmt.i_cat == AUDIO_ES) {
+                    static mtime_t audio_last_time = 0;
+                    //msg_Warn(p_demux, "%ld frameTrace live555 Audio(%lld), pts:%lld, offset(%lld,%lld),ptsOffsetToLastVideo(%lld),size:%d", vlc_thread_id(), currentTime, p_block->i_pts, (p_block->i_pts - audio_last_pts), (currentTime - audio_last_time), p_block->i_pts - video_last_pts,i_size);
+                    audio_last_pts = p_block->i_pts;
+                    audio_last_time = currentTime;
+                }*/
+                
                 es_out_Send( p_demux->out, tk->p_es, p_block );
                 if( i_pcr > VLC_TS_INVALID )
                 {

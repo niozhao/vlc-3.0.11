@@ -664,11 +664,11 @@ int input_clock_ConvertTS_new(vlc_object_t* p_object, input_clock_t* cl,
     mtime_t curNow = mdate();
     /*if (bVideoES)
     {
-		if (bUpdateLatency)
-			msg_Err(p_object, "%ld,input_clock_ConvertTS_new inputPTS:%lld => %lld,jitter:%lld,decoderLatency:%lld, Video needwait:%lld, mdate:%lld", GetCurrentThreadId(), oldPts, *pi_ts0, getNetworkJitter(cl), getDecoderLatency(cl), *pi_ts0 - curNow, curNow);
+	if (bUpdateLatency)
+	   msg_Warn(p_object, "%ld,input_clock_ConvertTS_new inputPTS:%lld => %lld,jitter:%lld,decoderLatency:%lld, Video needwait:%lld, mdate:%lld", GetCurrentThreadId(), oldPts, *pi_ts0, getNetworkJitter(cl), getDecoderLatency(cl), *pi_ts0 - curNow, curNow);
     }
     else
-        msg_Err(p_object, "%ld,input_clock_ConvertTS_new inputPTS:%lld => %lld,jitter:%lld,decoderLatency:%lld, Audio needwait:%lld, mdate:%lld", GetCurrentThreadId(), oldPts, *pi_ts0, getNetworkJitter(cl), getDecoderLatency(cl), *pi_ts0 - curNow, curNow);
+        msg_Warn(p_object, "%ld,input_clock_ConvertTS_new inputPTS:%lld => %lld,jitter:%lld,decoderLatency:%lld, Audio needwait:%lld, mdate:%lld", GetCurrentThreadId(), oldPts, *pi_ts0, getNetworkJitter(cl), getDecoderLatency(cl), *pi_ts0 - curNow, curNow);
     */
 
     //check auto-adjust algorithm validity!
