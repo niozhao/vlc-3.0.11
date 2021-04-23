@@ -1018,8 +1018,8 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block, bool *error
 
         post_mt( p_sys );
 
-        __int64 time1 = 0;
-        __int64 time2 = -1;
+        mtime_t time1 = 0;
+        mtime_t time2 = -1;
         
         if( b_has_data || b_start_drain )
         {
@@ -1079,7 +1079,7 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block, bool *error
         }
 
         ret = avcodec_receive_frame(p_context, frame);
-        //__int64 time3 = mdate_count();
+        //mtime_t time3 = mdate_count();
         if( ret != 0 && ret != AVERROR(EAGAIN) )
         {
             if (ret == AVERROR(ENOMEM) || ret == AVERROR(EINVAL))

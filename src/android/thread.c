@@ -413,6 +413,14 @@ mtime_t mdate (void)
     return (INT64_C(1000000) * ts.tv_sec) + (ts.tv_nsec / 1000);
 }
 
+mtime_t mdate_count(void)
+{
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    return (mtime_t)tp.tv_sec * INT64_C(1000000) +
+	  (mtime_t)tp.tv_usec;
+}
+
 /* cpu */
 
 unsigned vlc_GetCPUCount(void)
