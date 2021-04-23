@@ -1,0 +1,11 @@
+--- a/lib/minitasn1/int.h	2021-04-23 11:10:19.136712405 +0800
++++ b/lib/minitasn1/int.h	2021-04-22 17:29:08.019358000 +0800
+@@ -36,7 +36,7 @@
+ #include <sys/types.h>
+ #endif
+ 
+-#include <libtasn1.h>
++#include "libtasn1.h"
+ 
+ #define ASN1_SMALL_VALUE_SIZE 16
+ 

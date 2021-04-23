@@ -38,6 +38,7 @@ ifdef HAVE_MACOSX
 endif
 	$(APPLY) $(SRC)/gnutls/gnutls-libidn.patch
 	$(APPLY) $(SRC)/gnutls/vasnprintf-android-no-percent-n.patch
+	$(APPLY) $(SRC)/gnutls/fix_libtasn1_h_search_path_error.patch
 	$(call pkg_static,"lib/gnutls.pc.in")
 	$(UPDATE_AUTOCONFIG)
 	$(MOVE)
